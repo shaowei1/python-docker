@@ -4,7 +4,10 @@
 * Debian stretch
 * 阿里云 debian 源
 * 阿里云 pip 源
-
+ 
+## 使用方法
+./bin.sh # use python3.7
+./bin2.sh # use python3.10
 
 ## 镜像地址
 
