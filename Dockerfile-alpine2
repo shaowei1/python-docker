@@ -1,0 +1,8 @@
+FROM --platform=linux/amd64 python:3.10-alpine
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk update
+    
+COPY pip.conf /etc/pip.conf
+
+RUN pip install -U pip
