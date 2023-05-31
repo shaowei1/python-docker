@@ -10,8 +10,7 @@ WORKDIR /opt/build
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.cloud.tencent.com/g' /etc/apk/repositories && \
     apk update
 
-RUN set -ex \
-    && apk add -q --update --no-cache \
+RUN apk add -q --update --no-cache \
         build-base cmake \
         wget unzip \
         hdf5 hdf5-dev \
