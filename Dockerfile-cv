@@ -12,13 +12,6 @@ ARG OPENCV_VERSION=4.2.0
 ENV PKG_CONFIG_PATH /usr/local/lib64/pkgconfig
 ENV LD_LIBRARY_PATH /usr/local/lib64/:/usr/local/include/
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.cloud.tencent.com/g' /etc/apk/repositories && \
-    apk update
-
-COPY t-pip.conf /etc/pip.conf
-RUN pip install -U pip
-RUN pip config set global.index-url https://mirrors.tencent.com/pypi/simple
-
 RUN apk add --update --no-cache \
     # Build dependencies
     build-base clang clang-dev cmake pkgconf wget openblas openblas-dev \
@@ -104,3 +97,10 @@ RUN apk add --update --no-cache \
                     libtbb-dev libjpeg-turbo-dev libpng-dev tiff-dev jasper-dev \
                     ffmpeg-dev libavc1394-dev python3-dev && \
     rm -vrf /var/cache/apk/*
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.cloud.tencent.com/g' /etc/apk/repositories && \
+    apk update
+COPY t-pip.conf /etc/pip.conf
+RUN pip install -U pip
+RUN pip config set global.index-url https://mirrors.tencent.com/pypi/simple
+
