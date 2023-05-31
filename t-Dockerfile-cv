@@ -7,7 +7,7 @@ MAINTAINER shaowei <shaowei_8910@163.com>
 
 ENV LANG=C.UTF-8
 
-ARG OPENCV_VERSION=4.2.0
+ARG OPENCV_VERSION=4.7.0
 
 ENV PKG_CONFIG_PATH /usr/local/lib64/pkgconfig
 ENV LD_LIBRARY_PATH /usr/local/lib64/:/usr/local/include/
