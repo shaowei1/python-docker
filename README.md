@@ -14,3 +14,11 @@
 | 镜像站 | 镜像 | 版本 |
 |-------|------|-----|
 | 阿里云 | registry.cn-beijing.aliyuncs.com/ecpro/ecpro-python-docker | latest |
+
+# 使用腾讯加速apk
+```
+WORKDIR /opt/build
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.cloud.tencent.com/g' /etc/apk/repositories && \
+    apk update
+```
+
