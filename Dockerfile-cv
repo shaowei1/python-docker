@@ -1,106 +1,108 @@
-################################################################################
-##  Dockerfile to build minimal OpenCV img with Python3.10 and Video support   ##
-################################################################################
 FROM --platform=linux/amd64 python:3.10-alpine
 
 MAINTAINER shaowei <shaowei_8910@163.com>
 
 ENV LANG=C.UTF-8
 
-ARG OPENCV_VERSION=4.2.0
+ARG OPENCV_VERSION=4.7.0
 
-ENV PKG_CONFIG_PATH /usr/local/lib64/pkgconfig
-ENV LD_LIBRARY_PATH /usr/local/lib64/:/usr/local/include/
+WORKDIR /opt/build
 
-RUN apk add --update --no-cache \
-    # Build dependencies
-    build-base clang clang-dev cmake pkgconf wget openblas openblas-dev \
-    linux-headers \
-    # Image IO packages
-    libjpeg-turbo libjpeg-turbo-dev \
-    libpng libpng-dev \
-    libwebp libwebp-dev \
-    tiff tiff-dev \
-    jasper-libs jasper-dev \
-    openexr openexr-dev \
-    # Video depepndencies
-    ffmpeg-libs ffmpeg-dev \
-    libavc1394 libavc1394-dev \
-    gstreamer gstreamer-dev \
-    gst-plugins-base gst-plugins-base-dev \
-    libgphoto2 libgphoto2-dev && \
-    apk add --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
-            --update --no-cache libtbb libtbb-dev && \
-    # Python dependencies
-    apk add --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
-            --update --no-cache python3 python3-dev && \
-    #apk add --repository http://dl-cdn.alpinelinux.org/alpine/edge/community \
-    #        --update --no-cache py-numpy py-numpy-dev && \
-    # Update also musl to avoid an Alpine bug
-    apk upgrade --repository http://dl-cdn.alpinelinux.org/alpine/edge/main musl && \
-    # Make Python3 as default
-    ln -vfs /usr/bin/python3 /usr/local/bin/python && \
-    ln -vfs /usr/bin/pip3 /usr/local/bin/pip && \
-    # Fix libpng path
-    ln -vfs /usr/include/libpng16 /usr/include/libpng && \
-    ln -vfs /usr/include/locale.h /usr/include/xlocale.h && \
-    pip3 install -v --no-cache-dir --upgrade pip && \
-    pip3 install -v --no-cache-dir numpy && \
-    # Download OpenCV source
-    cd /tmp && \
-    wget https://github.com/opencv/opencv/archive/$OPENCV_VERSION.tar.gz && \
-    tar -xvzf $OPENCV_VERSION.tar.gz && \
-    rm -vrf $OPENCV_VERSION.tar.gz && \
-    # Configure
-    mkdir -vp /tmp/opencv-$OPENCV_VERSION/build && \
-    cd /tmp/opencv-$OPENCV_VERSION/build && \
-    cmake \
-        # Compiler params
-        -D CMAKE_BUILD_TYPE=RELEASE \
-        -D CMAKE_C_COMPILER=/usr/bin/clang \
-        -D CMAKE_CXX_COMPILER=/usr/bin/clang++ \
-        -D CMAKE_INSTALL_PREFIX=/usr \
-        # No examples
-        -D INSTALL_PYTHON_EXAMPLES=NO \
-        -D INSTALL_C_EXAMPLES=NO \
+RUN set -ex \
+    && echo "@edge http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+    && echo "@community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && echo "@testing http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
+    && apk add -q --update --no-cache \
+        build-base cmake \
+        wget unzip \
+        hdf5 hdf5-dev \
+        protobuf protobuf-dev \
+        openblas openblas-dev@community \
+        libjpeg libjpeg-turbo-dev \
+        libpng libpng-dev \
+        tiff tiff-dev \
+        libwebp libwebp-dev \
+        openjpeg openjpeg-dev openjpeg-tools \
+        libtbb@testing libtbb-dev@testing \
+        eigen eigen-dev \
+        tesseract-ocr tesseract-ocr-data-por tesseract-ocr-dev \
+        python3-dev \
+        linux-headers \
+    && pip install -q numpy \
+    && wget -q https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip -O opencv.zip \
+    && wget -q https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip -O opencv_contrib.zip \
+    && unzip -qq opencv.zip -d /opt && rm -rf opencv.zip \
+    && unzip -qq opencv_contrib.zip -d /opt && rm -rf opencv_contrib.zip \
+    && cmake \
         # Support
-        -D WITH_IPP=NO \
-        -D WITH_1394=NO \
-        -D WITH_LIBV4L=NO \
-        -D WITH_V4l=YES \
-        -D WITH_TBB=YES \
-        -D WITH_FFMPEG=YES \
+        -D WITH_V4l=ON \
+        -D WITH_TBB=ON \
+        -D WITH_FFMPEG=ON \
         -D WITH_GPHOTO2=YES \
-        -D WITH_GSTREAMER=YES \
-        # NO doc test and other bindings
-        -D BUILD_DOCS=NO \
-        -D BUILD_TESTS=NO \
-        -D BUILD_PERF_TESTS=NO \
-        -D BUILD_EXAMPLES=NO \
-        -D BUILD_opencv_java=NO \
-        -D BUILD_opencv_python2=NO \
-        -D BUILD_ANDROID_EXAMPLES=NO \
-        # Build Python3 bindings only
-        -D PYTHON3_LIBRARY=`find /usr -name libpython3.so` \
-        -D PYTHON_EXECUTABLE=`which python3` \
-        -D PYTHON3_EXECUTABLE=`which python3` \
-        -D OPENCV_GENERATE_PKGCONFIG=ON \
-        -D BUILD_opencv_python3=YES .. && \
-    # Build
-    make -j`grep -c '^processor' /proc/cpuinfo` && \
-    make install && \
-    ln -s /usr/local/include/opencv4/opencv2/ /usr/local/include/opencv2 && \
-    # Cleanup
-    cd / && rm -vrf /tmp/opencv-$OPENCV_VERSION && \
-    apk del --purge build-base clang clang-dev cmake pkgconf wget openblas-dev \
-                    openexr-dev gstreamer-dev gst-plugins-base-dev libgphoto2-dev \
-                    libtbb-dev libjpeg-turbo-dev libpng-dev tiff-dev jasper-dev \
-                    ffmpeg-dev libavc1394-dev python3-dev && \
-    rm -vrf /var/cache/apk/*
-
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.cloud.tencent.com/g' /etc/apk/repositories && \
-    apk update
-COPY t-pip.conf /etc/pip.conf
-RUN pip install -U pip
-RUN pip config set global.index-url https://mirrors.tencent.com/pypi/simple
-
+        -D WITH_GSTREAMER=OFF \
+        # default
+        -D CMAKE_BUILD_TYPE=RELEASE \
+        -D CMAKE_INSTALL_PREFIX=/usr/local \
+        -D OPENCV_EXTRA_MODULES_PATH=/opt/opencv_contrib-${OPENCV_VERSION}/modules \
+        -D EIGEN_INCLUDE_PATH=/usr/include/eigen3 \
+        -D OPENCV_ENABLE_NONFREE=ON \
+        -D WITH_JPEG=ON \
+        -D WITH_PNG=ON \
+        -D WITH_TIFF=ON \
+        -D WITH_WEBP=ON \
+        -D WITH_JASPER=ON \
+        -D WITH_EIGEN=ON \
+        -D WITH_LAPACK=ON \
+        -D WITH_PROTOBUF=ON \
+        -D WITH_V4L=OFF \
+        -D WITH_GTK=OFF \
+        -D WITH_QT=OFF \
+        -D WITH_CUDA=OFF \
+        -D WITH_VTK=OFF \
+        -D WITH_OPENEXR=OFF \
+        -D WITH_OPENCL=OFF \
+        -D WITH_OPENNI=OFF \
+        -D WITH_XINE=OFF \
+        -D WITH_GDAL=OFF \
+        -D WITH_IPP=OFF \
+        -D BUILD_OPENCV_PYTHON3=ON \
+        -D BUILD_OPENCV_PYTHON2=OFF \
+        -D BUILD_OPENCV_JAVA=OFF \
+        -D BUILD_TESTS=OFF \
+        -D BUILD_IPP_IW=OFF \
+        -D BUILD_PERF_TESTS=OFF \
+        -D BUILD_EXAMPLES=OFF \
+        -D BUILD_ANDROID_EXAMPLES=OFF \
+        -D BUILD_DOCS=OFF \
+        -D BUILD_ITT=OFF \
+        -D INSTALL_PYTHON_EXAMPLES=OFF \
+        -D INSTALL_C_EXAMPLES=OFF \
+        -D INSTALL_TESTS=OFF \
+        -D PYTHON3_EXECUTABLE=/usr/local/bin/python \
+        -D PYTHON3_INCLUDE_DIR=/usr/local/include/python3.10/ \
+        -D PYTHON3_LIBRARY=/usr/local/lib/libpython3.so \
+        -D PYTHON_LIBRARY=/usr/local/lib/libpython3.so \
+        -D PYTHON3_PACKAGES_PATH=/usr/local/lib/python3.10/site-packages/ \
+        -D PYTHON3_NUMPY_INCLUDE_DIRS=/usr/local/lib/python3.10/site-packages/numpy/core/include/ \
+        /opt/opencv-${OPENCV_VERSION} \
+    && make -j$(nproc) \
+    && make install \
+    && rm -rf /opt/build/* \
+    && rm -rf /opt/opencv-${OPENCV_VERSION} \
+    && rm -rf /opt/opencv_contrib-${OPENCV_VERSION} \
+    && apk del -q --no-cache \
+        build-base cmake \
+        hdf5-dev \
+        protobuf-dev \
+        openblas-dev \
+        libjpeg-turbo-dev \
+        libpng-dev \
+        tiff-dev \
+        libwebp-dev \
+        openjpeg-dev \
+        libtbb-dev \
+        eigen-dev \
+        tesseract-ocr-dev \
+        py3-numpy-dev \
+        python3-dev \
+        linux-headers
